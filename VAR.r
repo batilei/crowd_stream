@@ -26,11 +26,11 @@ generate.train.dataset <- function(original.data.mat, beg.time, train.period)
 }
 
 btime = strptime("2013-09-01 00:00:00","%Y-%m-%d %H:%M:%S",tz="America/New_York")
-train.period = 24*29 - 1
+train.period = 24*60
 
 twit.train.mat = generate.train.dataset(t_mat,btime,train.period)
-bicycle.train.mat = generate.train.dataset(bicycle_start_sep,btime,train.period)
-taxi.train.mat = generate.train.dataset(taxi_start_sep,btime,train.period)
+bicycle.train.mat = generate.train.dataset(bicycle_start,btime,train.period)
+taxi.train.mat = generate.train.dataset(taxi_start,btime,train.period)
 
 train.time.list = gen.workday.time.list(btime,train.period)
 
@@ -64,38 +64,34 @@ generate.validate.dataset <- function(original.data.mat, beg.time, valid.btime.i
 }
 
 valid.period = 24
-twit.valid.mat = generate.validate.dataset(t_mat,btime,train.period + 1,valid.period)
-bicycle.valid.mat = generate.validate.dataset(bicycle_start_sep,btime,train.period+1,valid.period)
-taxi.valid.mat = generate.validate.dataset(taxi_start_sep,btime,train.period+1,valid.period)
+twit.valid.mat = generate.validate.dataset(t_mat,btime,train.period+1,valid.period)
+bicycle.valid.mat = generate.validate.dataset(bicycle_start,btime,train.period+1,valid.period)
+taxi.valid.mat = generate.validate.dataset(taxi_start,btime,train.period+1,valid.period)
 
-valid.btime = (btime + (train.period+1) * as.difftime("01:00:00","%H:%M:%S"))
+valid.btime = (btime + train.period * as.difftime("01:00:00","%H:%M:%S"))
 valid.time.list = gen.workday.time.list(valid.btime,valid.period)
 
 
 
 #generate the time list for axis
-gen.workday.time.list <- function(beg.time,train.period){
+gen.workday.time.list <- function(beg.time,period){
   
   diff.hour = as.difftime("01:00:00","%H:%M:%S")
   time.list = list()
   
   k = 1
-  for(i in 1:train.period){
+  for(i in 1:period){
     time = as.POSIXlt(beg.time + (i-1) * diff.hour)
     
     if(time$wday > 0 && time$wday < 6)
     {
       time.list[[k]] = time
-      print(k)
       k = k + 1
     }
   }
   
   return (time.list)
 }
-
-
-
 
 
 

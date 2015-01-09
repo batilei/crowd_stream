@@ -1,25 +1,23 @@
 #read in the data
-twitter_sep = data.matrix(read.csv(file="./data/twitters9.csv",header=FALSE,sep="\t"))
-twitter_oct = data.matrix(read.csv(file="./data/twitters10.csv",header=FALSE,sep="\t"))
+twitter = data.matrix(read.csv(file="./data/twitters.csv",header=FALSE,sep="\t"))
 
 
-taxi_start_sep = data.matrix(read.csv(file="./data/taxi_start9.csv",header=FALSE,sep="\t"))
-taxi_end_sep = data.matrix(read.csv(file="./data/taxi_end9.csv",header=FALSE,sep="\t"))
+taxi_start = data.matrix(read.csv(file="./data/taxi_start.csv",header=FALSE,sep="\t"))
+taxi_end = data.matrix(read.csv(file="./data/taxi_end.csv",header=FALSE,sep="\t"))
 
-bicycle_start_sep = data.matrix(read.csv(file="./data/bicycle_start9.csv",header=FALSE,sep="\t"))
-bicycle_end_sep = data.matrix(read.csv(file="./data/bicycle_end9.csv",header=FALSE,sep="\t"))
+bicycle_start = data.matrix(read.csv(file="./data/bicycle_start.csv",header=FALSE,sep="\t"))
+bicycle_end= data.matrix(read.csv(file="./data/bicycle_end.csv",header=FALSE,sep="\t"))
+
+#generate the missing value for the twitter data set.
+t_mat = process_twitter_matrix(twitter)
 
 
-process_twitter_matrix <- function(t_mat1, t_mat2, maxlength){
-  t_mat = cbind(t_mat1,t_mat2)
-  row = nrow(t_mat)
-  
+process_twitter_matrix <- function(t_mat){
+    
   t_mat = t( apply(t_mat,1,replaceWithNA) )
   
   t_mat = t( apply(t_mat,1,generate_missing_data) )
-  
-  t_mat = t_mat[,1:maxlength]
-  
+    
   return (t_mat)
 }
 
@@ -156,22 +154,15 @@ sample_missing <- function(vec, ind, time){
   
   sample_mean = mean(sample)
   sample_sd = sd(sample)
-  min = sample_mean - sample_sd
-  if(min < 0)
-    min = 0
+  if(is.na(sample_sd))
+  {
+    print("deviation is NA")
+    sample_sd = 1
+  } 
+  sample_sd = 0.5 * sample_sd
+  if(sample_sd < 1)
+    sample_sd = 1
   
-  max = sample_mean + sample_sd
-  
-  rand.val = rnorm(sample_mean, 0.5 * sample_sd) 
+  rand.val = rnorm(1,mean = sample_mean, sd = sample_sd)
   return (rand.val)
-
-}
-
-
-testfun <- function(vec,val)
-{
-  for(i in 1:length(vec))
-    vec[i] = val;
-  
-  return (vec)
 }
