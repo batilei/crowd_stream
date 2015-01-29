@@ -166,3 +166,18 @@ sample_missing <- function(vec, ind, time){
   rand.val = rnorm(1,mean = sample_mean, sd = sample_sd)
   return (rand.val)
 }
+
+
+
+#normalization for tests
+ntaxi = taxi_start[8,800:900]
+nbike = bicycle_start[8,800:900]
+ntwit = t_mat[8,800:900]
+
+ntaxi = (ntaxi-mean(ntaxi))/sd(ntaxi)
+nbike = (nbike - mean(nbike)) / sd(nbike)
+ntwit = (ntwit - mean(ntwit)) / sd(ntwit)
+
+plot(ntaxi,type='l',ylim = c(-2,4))
+lines(nbike,col = 'red')
+lines(ntwit,col='blue')
