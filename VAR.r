@@ -226,7 +226,6 @@ plot.predict.result <- function(grid.ind){
 }
 
 
-
 #For test
 time = list()
 time[[1]] = strptime("2013-09-01 00:00:00","%Y-%m-%d %H:%M:%S",tz="America/New_York")
