@@ -1,0 +1,18 @@
+Two main plot functions:
+
+(1) plot.predict.result()
+Plot the polylines for different data sources and different methods.
+
+(2)draw.accuracy.bar()
+Plot the accuracy for different grids.
+
+Before we call the draw.accuracy.bar(), one pre-required steps:
+Call function get.all.prediction() to get the predicted values(matrix preds.mat).
+Input: the interval of hours to be predicted. (the predicted unit is default to 1 hour).
+Output:
+preds.mat[1,j] the predicted accuracy of twitter in grid j based on multiple sources method.
+preds.mat[2,j] the predicted accuracy of bicycle in grid j based on multiple sources method.
+preds.mat[3,j] the predicted accuracy of taxi in grid j based on multiple sources method.
+preds.mat[4,j] the predicted accuracy of twitter in grid j based on single source method.
+preds.mat[5,j] the predicted accuracy of bicycle in grid j based on single source method.
+preds.mat[6,j] the predicted accuracy of taxi in grid j based on single source method.

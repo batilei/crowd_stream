@@ -290,6 +290,8 @@ var.predict.grid.dynamic <- function(grid.ind, ahead, by.unit){
   return (pred.mat)
 }
 
+
+
 #given a set of dataset hashs, return the value of these datasets at specific time.
 get.validate.values.at.time <- function(clusters,time){
   
@@ -331,12 +333,65 @@ get.train.data.by.hash <- function(cluster.hash){
 }
 
 
+predict.single.value <- function(train.vec, validate.vec, pred.len, pred.unit ,lag)
+{
+  ##########Organize the trainning vector into multiple variables x1,x2,x3 etc., where x1 is x(t-1), x2 is x(t-2), etc.. #############
+  ntrain = length(train.vec)
+  train.data = data.frame('x1'=train.vec[(lag+1-1) : (ntrain-1)])
+  if(lag > 1)
+  {
+    for(i in 2:lag)
+      train.data[[paste('x',i,sep='')]] = train.vec[(lag+1-i) :(ntrain-i)]
+  }
+  y = train.vec[(lag+1) : ntrain]
+  lm.model = lm(y~.,data = train.data)
+  
+  intervals = pred.len / pred.unit
+  intermedia.validate.mat = matrix(nrow=pred.unit,ncol=lag)
+  
+  #the input vector(to the linear model) to compute the future value
+  pred.input.vec = c()
+  for(i in 1:lag)
+    pred.input.vec[i] = train.vec[ntrain-i+1]
+  #the validate vector(to train the linear model)
+  validate.input.vec = pred.input.vec
+  
+  pred.vec = c()
+  
+  for(i in 1:intervals){
+    
+    ##### predict for each round
+    for(j in 1:pred.unit){
+      #compute the predicted value
+      val = sum(lm.model$coefficients * c(1,pred.input.vec))
+      pred.vec = c(pred.vec, val)
+      
+      #use the predicted value for future prediction
+      pred.input.vec = pred.input.vec[-lag]
+      pred.input.vec = c(val, pred.input.vec)
+      
+      #update the validated input vector, we do it here rather than after the round just for convenience.
+      train.data = rbind(train.data,validate.input.vec)
+      y = c(y, validate.vec[(i-1)*pred.unit + j])
+      validate.input.vec = validate.input.vec[-lag]
+      validate.input.vec = c(validate.vec[(i-1)*pred.unit + j],validate.input.vec)
+    }
+    
+    ##### update the linear model after each round's prediction
+    lm.model = lm(y~.,data = train.data)
+    
+  }
+  
+  return (pred.vec)
+}
+
+
 #return the prediction accuracy of two methods for different datasets.
-validate.predict.accuracy <- function(grid.ind, ahead, by.unit){
+list.all.predict.accuracy <- function(grid.ind, ahead, by.unit){
   pred.mat = var.predict.grid.dynamic(grid.ind, ahead, by.unit)
   
   accuracy = c()
-  ##############################################################################
+  ################################## Multiple Sources ############################################
   #twit
   twit.validate = validate.mat.list[[1]][grid.ind,1:ahead]
   accuracy[1] = sqrt(sum((pred.mat[,1]-twit.validate)^2) / sum(twit.validate^2))
@@ -351,77 +406,41 @@ validate.predict.accuracy <- function(grid.ind, ahead, by.unit){
   accuracy[3] = sqrt(sum((pred.mat[,3]-taxi.validate)^2) / sum(taxi.validate^2))
   
   
-  ##############################################################################
+  ################################## Single Sources ############################################
   #twit
-  twit.single =predict.single.value(mix.mat.list[[1]][grid.ind,],validate.mat.list[[1]][grid.ind,],ahead,4)
+  twit.single =predict.single.value(mix.mat.list[[1]][grid.ind,],validate.mat.list[[1]][grid.ind,],ahead,by.unit,6)
   accuracy[4] = sqrt(sum((twit.single-twit.validate)^2) / sum(twit.validate^2))
   
   #bike
-  bike.single = predict.single.value(mix.mat.list[[2]][grid.ind,],validate.mat.list[[2]][grid.ind,],ahead,4)
+  bike.single = predict.single.value(mix.mat.list[[2]][grid.ind,],validate.mat.list[[2]][grid.ind,],ahead,by.unit,6)
   accuracy[5] = sqrt(sum((bike.single-bike.validate)^2) / sum(bike.validate^2))
   
   
   #taxi
-  taxi.single = predict.single.value(mix.mat.list[[3]][grid.ind,],validate.mat.list[[3]][grid.ind,],ahead,4)
+  taxi.single = predict.single.value(mix.mat.list[[3]][grid.ind,],validate.mat.list[[3]][grid.ind,],ahead,by.unit,6)
   accuracy[6] = sqrt(sum((taxi.single-taxi.validate)^2) / sum(taxi.validate^2))
-  
   
   
   return (accuracy)
 }
 
 
-#predict by single value
-predict.single.value <- function(train.vec, validate.vec, pred.len, lag)
-{
-  ntrain = length(train.vec)
-  train.data = data.frame('x1'=train.vec[(ntrain-1):(lag+1-1)])
-  if(lag > 1)
-  {
-    for(i in 2:lag)
-      train.data[[paste('x',i,sep='')]] = train.vec[(ntrain-i):(lag+1-i)]
-  }
-  y = train.vec[ntrain:(lag+1)]
-  lm.model = lm(y~.,data = train.data)
-  
-  input.vec = c()
-  for(i in 1:lag)
-    input.vec[i] = train.vec[ntrain-i+1]
-  
-  pred.vec = c()
-  
-  for(i in 1:pred.len){
-    val = lm.model$coefficients[1]
-    
-    for(j in 1:lag)
-      val = val + lm.model$coefficients[j+1] * input.vec[j]
-    
-    pred.vec[i] = val
-    
-    input.vec = input.vec[-lag]
-    input.vec = c(validate.vec[i], input.vec)
-  }
-  
-  return (pred.vec)
-}
-
-# compute all the predictio accuracy in advance
-get.all.prediction <- function(ahead)
+# compute all the predictio accuracy of the data sources, algorithms and grids in advance
+get.all.prediction <- function(ahead, unit)
 {
   preds.mat = matrix(nrow=6,ncol=ngrids)
   
   for(i in 1:ngrids)
   {
-    pred.vec = validate.predict.accuracy(i, ahead, 1)
+    pred.vec = list.all.predict.accuracy(i, ahead, unit)
         
     preds.mat[,i]= 1 - pred.vec
-    
   }
   
   return (preds.mat)
 }
 
-preds.mat = get.all.prediction(48)
+preds.mat = get.all.prediction(48,1)
 
 #draw bar
 draw.accuracy.bar <- function(type.id)
@@ -484,40 +503,132 @@ plot.predict.result <- function(grid.ind, ahead){
   #plot the real value
   lines(1:pred.len,validate.mat.list[[1]][grid.ind,1:pred.len],col="blue")
   
-  #plot twitter validated data(by 1 hour)
+  #plot twitter multiple source predicted data(by 1 hour)
   lines(1:pred.len,pred.mat[1:pred.len,1],lty=3,col="blue")
   
-  #plot twitter predicted data(by 1 hour)
-  twit.single = predict.single.value(mix.mat.list[[1]][grid.ind,], validate.mat.list[[1]][grid.ind,], pred.len, 4)
+  #plot twitter single source predicted data(by 1 hour)
+  twit.single = predict.single.value(mix.mat.list[[1]][grid.ind,], validate.mat.list[[1]][grid.ind,], pred.len,1, 6)
   lines(1:pred.len,twit.single,lty=5,col="blue")
   
   #--------------------------------------------------------------------------------------
   
-  #plot the real value
+  #plot the bicycle real value
   lines(1:pred.len,validate.mat.list[[2]][grid.ind,1:pred.len],col="red")
   
-  #plot bicycle validated data(1 by 1 hour)
+  #plot bicycle multiple source predicted data(1 by 1 hour)
   lines(1:pred.len, pred.mat[1:pred.len,2],lty=3,col="red")
   
-  #plot bicycle predicted data(1 by 1 hour)
-  bike.single = predict.single.value(mix.mat.list[[2]][grid.ind,], validate.mat.list[[2]][grid.ind,], pred.len, 4)
+  #plot bicycle single source predicted data(1 by 1 hour)
+  bike.single = predict.single.value(mix.mat.list[[2]][grid.ind,], validate.mat.list[[2]][grid.ind,], pred.len,1, 6)
   lines(1:pred.len, bike.single,lty=5,col="red")
   
   #--------------------------------------------------------------------------------------
   
-  #plot the real value
+  #plot the taxi real value
   lines(1:pred.len,validate.mat.list[[3]][grid.ind,1:pred.len])
   
-  #plot taxi validated data(1 by 1 hour)
+  #plot taxi multiple source predicted data(1 by 1 hour)
   lines(1:pred.len,pred.mat[1:pred.len,3],lty=3,col=33)
   
-  #plot taxi predicted data(1 by 1 hour)
-  taxi.single = predict.single.value(mix.mat.list[[3]][grid.ind,], validate.mat.list[[3]][grid.ind,], pred.len, 4)
+  #plot taxi single source predicted data(1 by 1 hour)
+  taxi.single = predict.single.value(mix.mat.list[[3]][grid.ind,], validate.mat.list[[3]][grid.ind,], pred.len,1, 6)
   lines(1:pred.len,taxi.single,lty=5,col=33)
   
 }
 
   
 
+predict.length.accuracy <- function(grid.ind, ahead){
+  units = c(1,2,3,4,6,12,16,24)
+  nunits = length(units)
+  accuracys = matrix(nrow = 3, ncol = nunits)
+  
+  for(i in 1:nunits){
+    
+    pred.mat = var.predict.grid.dynamic(grid.ind, ahead, units[i])
+    
+    ################################## Multiple Sources ############################################
+    #twit
+    twit.validate = validate.mat.list[[1]][grid.ind,1:ahead]
+    accuracys[1,i] = sqrt(sum((pred.mat[,1]-twit.validate)^2) / sum(twit.validate^2))
+    
+    #bike
+    bike.validate = validate.mat.list[[2]][grid.ind,1:ahead]
+    accuracys[2,i] = sqrt(sum((pred.mat[,2]-bike.validate)^2) / sum(bike.validate^2))
+    
+    
+    #taxi
+    taxi.validate = validate.mat.list[[3]][grid.ind,1:ahead]
+    accuracys[3,i] = sqrt(sum((pred.mat[,3]-taxi.validate)^2) / sum(taxi.validate^2))
+    
+  }
+  
+  return (accuracys)
+}
+
+predict.len.accuracy = predict.length.accuracy(5,48)
 
 
+plot.predict.length.accuracy <- function(grid.ind, ahead){
+  
+  units = c(1,2,3,4,6,12,16,24)
+  nunits = length(units)
+  
+  #set up the plot
+  plot.new()  
+  plot.window(xlim=c(1,9), ylim=c(0,1))
+  
+
+  axis(1,labels=units)
+  axis(2)
+  title(main="Prediction Accuracy for Different Prediction Length",xlab="prediction length",ylab="accuracy")
+  legend("topleft",c("taxi","bicycle","twitter"),col=c(33,"red","blue"),cex=0.7,x.intersp=0.5,y.intersp=0.7, ncol=2)
+    
+  
+  lines(1:units,1-predict.len.accuracy[1,] ,col = 33)
+  lines(1:units,1-predict.len.accuracy[2,] ,col = "red")
+  lines(1:units,1-predict.len.accuracy[3,] ,col = "blue")
+  
+  
+  
+}
+
+
+
+#predict by single value
+# predict.single.value <- function(train.vec, validate.vec, pred.len, lag)
+# {
+#   ntrain = length(train.vec)
+#   train.data = data.frame('x1'=train.vec[(ntrain-1):(lag+1-1)])
+#   if(lag > 1)
+#   {
+#     for(i in 2:lag)
+#       train.data[[paste('x',i,sep='')]] = train.vec[(ntrain-i):(lag+1-i)]
+#   }
+#   y = train.vec[ntrain:(lag+1)]
+#   lm.model = lm(y~.,data = train.data)
+#   
+#   input.vec = c()
+#   for(i in 1:lag)
+#     input.vec[i] = train.vec[ntrain-i+1]
+#   
+#   pred.vec = c()
+#   
+#   for(i in 1:pred.len){
+#     val = lm.model$coefficients[1]
+#     
+#     for(j in 1:lag)
+#       val = val + lm.model$coefficients[j+1] * input.vec[j]
+#     
+#     pred.vec[i] = val
+#   
+#     train.data = rbind(input.vec, train.data)
+#     y = c(validate.vec[i],y)
+#     lm.model = lm(y~.,data = train.data)
+#     input.vec = input.vec[-lag]
+#     input.vec = c(validate.vec[i], input.vec)
+#     
+#   }
+#   
+#   return (pred.vec)
+# }
